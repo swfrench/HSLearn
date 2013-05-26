@@ -1,15 +1,16 @@
 
 -- | Common optimization strategies
 module Optimize
-( gradientDescent
+( gradientDescentFixed
+, gradientDescentSearch
 , conjugateGradient
 ) where
 
 import Numeric.LinearAlgebra
 import LineSearch
 
--- | Gradient Descent
-gradientDescent
+-- | Gradient descent with fixed learning rate
+gradientDescentFixed
   :: Double                            -- ^ learning rate
   -> Double                            -- ^ residual tolerance
   -> Int                               -- ^ maximum number of iterations
@@ -17,11 +18,28 @@ gradientDescent
   -> (Vector Double -> Vector Double)  -- ^ gradient function
   -> Vector Double                     -- ^ initial parameter estimate
   -> (Int, Double, Vector Double)      -- ^ returns: (niter, res, theta)
-gradientDescent alpha tol ngditer cost grad = optimize 0
+gradientDescentFixed alpha tol ngditer cost grad = optimize 0
   where optimize n t = let r = cost t in
           if n == ngditer || r < tol
-            then (n, r, t)
-            else optimize (n + 1) (t - scale alpha (grad t))
+          then  (n, r, t)
+          else  optimize (n + 1) (t - scale alpha (grad t))
+
+-- | Gradient descent with backtracking line search
+gradientDescentSearch
+  :: SearchConfig                      -- ^ configuration for backtracking line search
+  -> Double                            -- ^ residual tolerance
+  -> Int                               -- ^ maximum number of iterations
+  -> (Vector Double -> Double)         -- ^ cost function
+  -> (Vector Double -> Vector Double)  -- ^ gradient function
+  -> Vector Double                     -- ^ initial parameter estimate
+  -> (Int, Double, Vector Double)      -- ^ returns: (niter, res, theta)
+gradientDescentSearch conf tol ngditer cost grad = optimize 0
+  where optimize n t = let r = cost t in
+          if n == ngditer || r < tol
+          then  (n, r, t)
+          else
+            let alpha = search cost grad (- grad t) t conf
+            in  optimize (n + 1) (t - scale alpha (grad t))
 
 -- | Non-linear (Fletcher-Reeves) conjugate gradient algorithm (no restarts)
 conjugateGradient

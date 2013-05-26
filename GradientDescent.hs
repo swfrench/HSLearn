@@ -10,11 +10,11 @@ import Numeric.LinearAlgebra
 gradientDescent 
   :: Double                            -- ^ learning rate
   -> Double                            -- ^ residual tolerance
-  -> Integer                           -- ^ maximum number of iterations
+  -> Int                               -- ^ maximum number of iterations
   -> (Vector Double -> Double)         -- ^ cost function
   -> (Vector Double -> Vector Double)  -- ^ gradient function
   -> Vector Double                     -- ^ initial parameter estimate
-  -> (Integer, Double, Vector Double)  -- ^ returns: (niter, res, theta)
+  -> (Int, Double, Vector Double)      -- ^ returns: (niter, res, theta)
 gradientDescent alpha tol niter cost grad = optimize 0
   where optimize n t = let r = cost t in 
           if n == niter || r < tol 

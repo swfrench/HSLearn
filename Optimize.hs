@@ -1,5 +1,5 @@
 
--- | Gradient descent
+-- | Common optimization strategies
 module Optimize 
 ( gradientDescent
 , conjugateGradient

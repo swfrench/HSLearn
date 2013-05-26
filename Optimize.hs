@@ -1,45 +1,34 @@
-
 -- | Common optimization strategies
 module Optimize
-( CGBnType (..)
-, gradientDescentFixed
-, gradientDescentSearch
+( LearnRate (..)
+, CGBnType  (..)
+, gradientDescent
 , conjugateGradient
 ) where
 
 import Numeric.LinearAlgebra
 import LineSearch
 
--- | Gradient descent with fixed learning rate
-gradientDescentFixed
-  :: Double                            -- ^ learning rate
-  -> Double                            -- ^ residual tolerance
-  -> Int                               -- ^ maximum number of iterations
-  -> (Vector Double -> Double)         -- ^ cost function
-  -> (Vector Double -> Vector Double)  -- ^ gradient function
-  -> Vector Double                     -- ^ initial parameter estimate
-  -> (Int, Double, Vector Double)      -- ^ returns: (@niter@, @res@, @theta@)
-gradientDescentFixed alpha tol ngditer cost grad = optimize 0
-  where optimize n t = let r = cost t in
-          if n == ngditer || r < tol
-          then  (n, r, t)
-          else  optimize (n + 1) (t - scale alpha (grad t))
+-- | Learning rate for gradient descent (fixed vs. search)
+data LearnRate = FixedRate Double | SearchRate SearchConfig deriving (Show)
 
--- | Gradient descent with backtracking line search
-gradientDescentSearch
-  :: SearchConfig                      -- ^ configuration for backtracking line search
+-- | Gradient descent with fixed learning rate
+gradientDescent
+  :: LearnRate                         -- ^ learning rate
   -> Double                            -- ^ residual tolerance
   -> Int                               -- ^ maximum number of iterations
   -> (Vector Double -> Double)         -- ^ cost function
   -> (Vector Double -> Vector Double)  -- ^ gradient function
   -> Vector Double                     -- ^ initial parameter estimate
   -> (Int, Double, Vector Double)      -- ^ returns: (@niter@, @res@, @theta@)
-gradientDescentSearch conf tol ngditer cost grad = optimize 0
+gradientDescent rate tol ngditer cost grad = optimize 0
   where optimize n t = let r = cost t in
           if n == ngditer || r < tol
           then  (n, r, t)
           else
-            let alpha = search conf cost grad (- grad t) t
+            let alpha = case rate of
+                          FixedRate  a    -> a
+                          SearchRate conf -> search conf cost grad (- grad t) t
             in  optimize (n + 1) (t - scale alpha (grad t))
 
 -- | Formula for the beta_n term in non-linear CG

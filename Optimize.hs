@@ -38,7 +38,7 @@ gradientDescentSearch conf tol ngditer cost grad = optimize 0
           if n == ngditer || r < tol
           then  (n, r, t)
           else
-            let alpha = search cost grad (- grad t) t conf
+            let alpha = search conf cost grad (- grad t) t
             in  optimize (n + 1) (t - scale alpha (grad t))
 
 -- | Non-linear (Fletcher-Reeves) conjugate gradient algorithm (no restarts)
@@ -53,7 +53,7 @@ conjugateGradient
 conjugateGradient conf tol ncgiter cost grad t0 =
   -- initialization steps
   let p = - grad t0
-      a = search cost grad p t0 conf
+      a = search conf cost grad p t0
   in  cg 1 (t0 + scale a p) p p
   -- later steps
   where cg n t s p = let r = cost t in
@@ -63,5 +63,5 @@ conjugateGradient conf tol ncgiter cost grad t0 =
             let pn  = - grad t
                 bn  = (pn <.> pn) / (p <.> p) -- Fletcher-Reeves
                 sn  = pn + scale bn s
-                an  = search cost grad sn t conf
+                an  = search conf cost grad sn t
             in  cg (n + 1) (t + scale an sn) sn pn

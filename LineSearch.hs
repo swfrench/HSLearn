@@ -1,5 +1,5 @@
 
--- | Non-linear conjugate gradient algorithm
+-- | Backtracking line search (Wolfe conditions)
 module LineSearch
 ( WolfeType (..)
 , SearchConfig (..)
@@ -37,14 +37,14 @@ defaultSearchConfig = SearchConfig
 
 -- | Check whether Wolfe conditions are satisfied
 wolfe
-  :: Double       -- ^ initial cost
+  :: SearchConfig -- ^ contains config for Wolfe conditions
+  -> Double       -- ^ initial cost
   -> Double       -- ^ current search-point cost
   -> Double       -- ^ current step size
   -> Double       -- ^ search direction projected into initial gradient
   -> Double       -- ^ search direction projected into gradient at search point
-  -> SearchConfig -- ^ contains config for Wolfe conditions
   -> Bool         -- ^ returns: whether Wolfe conditions satisfied
-wolfe j0 jn an pg pgn conf =
+wolfe conf j0 jn an pg pgn =
   jn <= j0 + c1 conf * an * pg && -- Armijo rule
   case wtype conf of
     Wolfe       -> pgn     >= c2 conf * pg
@@ -52,13 +52,13 @@ wolfe j0 jn an pg pgn conf =
 
 -- | Inexact back-tracking line search (Wolfe conditions)
 search
-  :: (Vector Double -> Double)        -- ^ cost function
+  :: SearchConfig                     -- ^ configuration for search
+  -> (Vector Double -> Double)        -- ^ cost function
   -> (Vector Double -> Vector Double) -- ^ gradient function
   -> Vector Double                    -- ^ search direction
   -> Vector Double                    -- ^ current solution
-  -> SearchConfig                     -- ^ configuration for search
   -> Double                           -- ^ returns: best step size
-search cost grad p x conf =
+search conf cost grad p x =
   let j0 = cost x
   in  iter 0 (a0 conf) j0 (a0 conf) j0 (p <.> grad x)
   where
@@ -71,7 +71,7 @@ search cost grad p x conf =
             jn  = cost xn         -- search point cost
             pgn = p <.> grad xn   -- search direction projected into gradient at search point
         -- test Wolfe conditions
-        in  if    wolfe j0 jn an pg pgn conf
+        in  if    wolfe conf j0 jn an pg pgn
             then  an
             else
               let aminn = if jn < jmin then an else amin

@@ -1,4 +1,3 @@
-
 -- | Backtracking line search (Wolfe conditions)
 module LineSearch
 ( WolfeType (..)
@@ -11,7 +10,7 @@ module LineSearch
 import Numeric.LinearAlgebra
 
 -- | Wolfe conditions
-data WolfeType = Wolfe | StrongWolfe deriving (Show)
+data WolfeType = Wolfe | StrongWolfe deriving (Show,Eq)
 
 -- | Configuration for the backtracking line-search
 data SearchConfig = SearchConfig
@@ -21,7 +20,7 @@ data SearchConfig = SearchConfig
   , c1    :: Double     -- ^ constant for Armijo rule
   , c2    :: Double     -- ^ constant for curvature condition
   , wtype :: WolfeType  -- ^ type of Wolfe conditions enforced
-  } deriving (Show)
+  } deriving (Show,Eq)
 
 -- | Convenient default search configuration
 --

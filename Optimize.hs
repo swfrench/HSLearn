@@ -10,7 +10,10 @@ import Numeric.LinearAlgebra
 import LineSearch
 
 -- | Learning rate for gradient descent (fixed vs. search)
-data LearnRate = FixedRate Double | SearchRate SearchConfig deriving (Show)
+data LearnRate =
+    FixedRate   Double       -- ^ Fixed learning rate (specified)
+  | SearchRate  SearchConfig -- ^ Backtracking line search with config (specified)
+  deriving (Show,Eq)
 
 -- | Gradient descent with fixed learning rate
 gradientDescent
@@ -32,7 +35,10 @@ gradientDescent rate tol ngditer cost grad = optimize 0
             in  optimize (n + 1) (t - scale alpha (grad t))
 
 -- | Formula for the beta_n term in non-linear CG
-data CGBnType = FletcherReeves | PolakRibiere deriving (Show)
+data CGBnType =
+    FletcherReeves  -- ^ Fletcher-Reeves formula
+  | PolakRibiere    -- ^ Polak-Ribiere formula
+  deriving (Show,Eq)
 
 -- | Non-linear (Fletcher-Reeves) conjugate gradient algorithm (no explicit restarts)
 conjugateGradient

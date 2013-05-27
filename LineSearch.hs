@@ -9,6 +9,8 @@ module LineSearch
 
 import Numeric.LinearAlgebra
 
+type Vec = Vector Double
+
 -- | Wolfe conditions
 data WolfeType = Wolfe | StrongWolfe deriving (Show,Eq)
 
@@ -51,12 +53,12 @@ wolfe conf j0 jn an pg pgn =
 
 -- | Inexact back-tracking line search (Wolfe conditions)
 search
-  :: SearchConfig                     -- ^ configuration for search
-  -> (Vector Double -> Double)        -- ^ cost function
-  -> (Vector Double -> Vector Double) -- ^ gradient function
-  -> Vector Double                    -- ^ search direction
-  -> Vector Double                    -- ^ current solution
-  -> Double                           -- ^ returns: best step size
+  :: SearchConfig     -- ^ configuration for search
+  -> (Vec -> Double)  -- ^ cost function
+  -> (Vec -> Vec)     -- ^ gradient function
+  -> Vec              -- ^ search direction
+  -> Vec              -- ^ current solution
+  -> Double           -- ^ returns: best step size
 search conf cost grad p x =
   let j0 = cost x
   in  iter 0 (a0 conf) j0 (a0 conf) j0 (p <.> grad x)

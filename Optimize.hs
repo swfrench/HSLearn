@@ -17,21 +17,24 @@ data LearnRate =
 
 -- | Gradient descent with fixed learning rate
 gradientDescent
-  :: LearnRate                         -- ^ learning rate
+  :: LearnRate                         -- ^ configuration for learning rate
   -> Double                            -- ^ residual tolerance
   -> Int                               -- ^ maximum number of iterations
   -> (Vector Double -> Double)         -- ^ cost function
   -> (Vector Double -> Vector Double)  -- ^ gradient function
   -> Vector Double                     -- ^ initial parameter estimate
   -> (Int, Double, Vector Double)      -- ^ returns: (@niter@, @res@, @theta@)
-gradientDescent rate tol ngditer cost grad = optimize 0
+gradientDescent (FixedRate alpha) tol ngditer cost grad = optimize 0
+  where optimize n t = let r = cost t in
+          if n == ngditer || r < tol
+          then  (n, r, t)
+          else  optimize (n + 1) (t - scale alpha (grad t))
+gradientDescent (SearchRate conf) tol ngditer cost grad = optimize 0
   where optimize n t = let r = cost t in
           if n == ngditer || r < tol
           then  (n, r, t)
           else
-            let alpha = case rate of
-                          FixedRate  a    -> a
-                          SearchRate conf -> search conf cost grad (- grad t) t
+            let alpha = search conf cost grad (- grad t) t
             in  optimize (n + 1) (t - scale alpha (grad t))
 
 -- | Formula for the beta_n term in non-linear CG
@@ -40,9 +43,9 @@ data CGBnType =
   | PolakRibiere    -- ^ Polak-Ribiere formula
   deriving (Show,Eq)
 
--- | Non-linear (Fletcher-Reeves) conjugate gradient algorithm (no explicit restarts)
+-- | Non-linear conjugate gradient algorithm (no explicit restarts)
 conjugateGradient
-  :: CGBnType
+  :: CGBnType                           -- ^ configuration for beta_n term
   -> SearchConfig                       -- ^ configuration for backtracking line search
   -> Double                             -- ^ residual tolerance
   -> Int                                -- ^ maximum number of iterations
@@ -50,7 +53,9 @@ conjugateGradient
   -> (Vector Double -> Vector Double)   -- ^ gradient function
   -> Vector Double                      -- ^ initial parameter estimate
   -> (Int, Double, Vector Double)       -- ^ returns: (@niter@, @res@, @theta@)
-conjugateGradient bntype conf tol ncgiter cost grad t0 =
+conjugateGradient FletcherReeves = conjugateGradientBase (\pn p -> (pn <.> pn)       / (p <.> p))
+conjugateGradient PolakRibiere   = conjugateGradientBase (\pn p -> (pn <.> (pn - p)) / (p <.> p))
+conjugateGradientBase fbn conf tol ncgiter cost grad t0 =
   -- initialization steps
   let p = - grad t0
       a = search conf cost grad p t0
@@ -61,9 +66,7 @@ conjugateGradient bntype conf tol ncgiter cost grad t0 =
           then  (n, r, t)
           else
             let pn  = - grad t
-                bn  = case bntype of
-                        FletcherReeves -> max 0.0 ((pn <.> pn)       / (p <.> p))
-                        PolakRibiere   -> max 0.0 ((pn <.> (pn - p)) / (p <.> p))
+                bn  = max 0.0 (fbn pn p)
                 sn  = pn + scale bn s
                 an  = search conf cost grad sn t
             in  cg (n + 1) (t + scale an sn) sn pn

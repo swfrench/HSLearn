@@ -60,8 +60,15 @@ search
   -> Vec              -- ^ current solution
   -> Double           -- ^ returns: best step size
 search conf cost grad p x =
-  let j0 = cost x
-  in  iter 0 (a0 conf) j0 (a0 conf) j0 (p <.> grad x)
+  let j0  = cost x
+      pg  = p <.> grad x
+      -- initial (quadratic) guess for step size?
+      -- ep  = 1.0e-8
+      -- pge = p <.> grad (x + scale ep p)
+      -- aa  = seq (unsafePerformIO $ print (pg,pge)) (- (pg - pge) / (2 * ep))
+      -- aa0 = - 2 * pg / (2 * aa)
+      aa0 = a0 conf
+  in  iter 0 aa0 j0 aa0 j0 pg
   where
     iter n an j0 amin jmin pg =
       -- check number of iters; return best step if niter exhausted

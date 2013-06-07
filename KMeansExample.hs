@@ -1,10 +1,7 @@
-
+-- Example k-means clustering
 module Main where
 
 import Text.Printf
-import System.Environment (getArgs)
-import System.Exit
-
 import Control.DeepSeq
 import Data.Time
 
@@ -12,27 +9,26 @@ import qualified Data.Vector.Unboxed as U
 
 import KMeans (kmeansInitPP, euclidean) -- , manhattan)
 
+-- Convenient type alias
 type DVec  = U.Vector Double
 
-loadData 
-  :: FilePath 
+-- Load the test data
+loadVectors
+  :: FilePath
   -> IO [DVec]
-loadData f = parse =<< readFile f
+loadVectors f = parse =<< readFile f
   where parse = return . map (U.fromList . map read . words) . lines
 
-saveData 
-  :: FilePath 
-  -> [DVec] 
+-- Save resulting centroids
+saveVectors
+  :: FilePath
+  -> [DVec]
   -> IO ()
-saveData f = writeFile f . build
+saveVectors f = writeFile f . build
   where build = unlines . map (unwords . map show . U.toList)
 
-parseArgs
-  :: [String]
-  -> IO (Int,Int,FilePath)
-parseArgs (sk:sn:fn:[]) = return ( read sk :: Int, read sn :: Int, fn :: FilePath)
-parseArgs _             = printf "Usage: prog k niter in.data\n" >> exitSuccess
-
+-- Run some action in the IO monad w/ timing
+-- N.B. it is up to the action @f@ to ensure its result is fully evaluated
 withTiming :: IO a -> IO (Double,a)
 withTiming f = do
   t0  <- getCurrentTime
@@ -40,22 +36,29 @@ withTiming f = do
   t1  <- getCurrentTime
   return (realToFrac $ diffUTCTime t1 t0, res)
 
+-- Wrapper for comon @deepseq@ use case
 mdsq :: NFData a => a -> IO ()
 mdsq x = x `deepseq` return ()
 
+-- Example clustering
 main :: IO ()
-main = do 
-  (k,niter,fname) <- getArgs >>= parseArgs
-  xs <- loadData fname
+main = do
+  -- config
+  let k     = 3
+      niter = 100
+      fname = "in.test"
+  -- load features
+  xs <- loadVectors fname
   mdsq xs
   printf "data is ready\n"
+  -- run clustering w/ timing
   printf "running kmeans ... "
   (dt, clusters) <- withTiming $ do
     cs <- kmeansInitPP k niter euclidean xs
     mdsq cs
     return cs
   printf "done\n"
+  -- report timing ans save resulting centroids
   printf "computation took: %.4f s\n" dt
-  saveData "out.test" (fst clusters)
+  saveVectors "out.test" (fst clusters)
   printf "saved result to out.test\n"
-

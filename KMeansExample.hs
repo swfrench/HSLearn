@@ -7,7 +7,7 @@ import Data.Time
 
 import qualified Data.Vector.Unboxed as U
 
-import KMeans (kmeansInitPP, euclidean) -- , manhattan)
+import KMeans (kmeansInitPP, distortion, euclidean) -- , manhattan)
 
 -- Convenient type alias
 type DVec  = U.Vector Double
@@ -53,12 +53,13 @@ main = do
   printf "data is ready\n"
   -- run clustering w/ timing
   printf "running kmeans ... "
-  (dt, clusters) <- withTiming $ do
+  (dt, (centroids,labels)) <- withTiming $ do
     cs <- kmeansInitPP k niter euclidean xs
     mdsq cs
     return cs
   printf "done\n"
   -- report timing ans save resulting centroids
   printf "computation took: %.4f s\n" dt
-  saveVectors "out.test" (fst clusters)
+  printf "total distortion: %e\n" (distortion euclidean centroids labels xs)
+  saveVectors "out.test" centroids
   printf "saved result to out.test\n"

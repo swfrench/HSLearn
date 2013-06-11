@@ -5,6 +5,7 @@ module KMeans
 ( euclidean
 , manhattan
 , label
+, distortion
 , kmeans
 , kmeansInitRandom
 , kmeansInitPP
@@ -17,6 +18,9 @@ import qualified Data.Vector.Unboxed as U
 -- Type alias for a vector of unboxed @Double@s
 type DVec  = U.Vector Double
 
+-- Type alias for the distance measures
+type Distance = DVec -> DVec -> Double
+
 -- Strict calculation of the mean of a list of data points ('DVec's)
 mean
   :: [DVec]
@@ -26,28 +30,22 @@ mean (x:xs) = final . foldl stepl (1 :: Int,x) $ xs
   where stepl (!n,!s) z = (n+1,U.zipWith (+) s z)
         final (!n,!s)   = U.map (/ fromIntegral n) s
 
--- | Euclidean distance between two data vectors
-euclidean
-  :: DVec
-  -> DVec
-  -> Double
-euclidean !x !y = sqrt . U.sum $ U.zipWith f x y
+-- | Squared Euclidean distance between two data vectors
+euclidean :: Distance
+euclidean !x !y = U.sum $ U.zipWith f x y
   where f !u !v = (u - v) ** 2
 
 -- | Manhattan distance between two data vectors
-manhattan
-  :: DVec
-  -> DVec
-  -> Double
+manhattan :: Distance
 manhattan !x !y = U.sum $ U.zipWith f x y
   where f !u !v = abs (u - v)
 
 -- | Apply labels to a set of data vectors given a set of cluster centroids
 label
-  :: (DVec -> DVec -> Double)  -- ^ Distance measure
-  -> [DVec]                    -- ^ Cluster centroids
-  -> [DVec]                    -- ^ Data vectors
-  -> [Int]                     -- ^ Returns: data labels (cluster ids)
+  :: Distance -- ^ Distance measure
+  -> [DVec]   -- ^ Cluster centroids
+  -> [DVec]   -- ^ Data vectors
+  -> [Int]    -- ^ Returns: data labels (cluster ids)
 label dist cs = map go
   where go x = snd . minimum $ zip (map (dist x) cs) [0..]
 
@@ -59,6 +57,16 @@ update
   -> [DVec]  -- Returns: new estimate of cluster centroids
 update k xs ls = map centroid [0..k-1]
   where centroid n = mean . map snd . filter ((==n) . fst) $ zip ls xs
+
+-- | Summed misfit for cluster configuration
+distortion
+  :: Distance -- ^ Distance measure
+  -> [DVec]   -- ^ Cluster centroids
+  -> [Int]    -- ^ Data labels given current centroids
+  -> [DVec]   -- ^ Data
+  -> Double   -- ^ Returns: summed misfit over all data vectors
+distortion dist cs ls xs = 
+  foldl (\a (l,x) -> a + dist x (cs !! l)) 0 $ zip ls xs
 
 -- Random centroid initialization
 initRandom
@@ -78,10 +86,10 @@ initRandom k xs = go k ([],[])
 
 -- Centroid initialization for the k-means++ technique
 initPP
-  :: Int                       -- Number of centroids requested @k@
-  -> [DVec]                    -- Data @xs@
-  -> (DVec -> DVec -> Double)  -- Distance measure
-  -> IO [DVec]                 -- Returns: initial centroids from @xs@
+  :: Int        -- Number of centroids requested @k@
+  -> [DVec]     -- Data @xs@
+  -> Distance   -- Distance measure
+  -> IO [DVec]  -- Returns: initial centroids from @xs@
 initPP k xs dst = go k ([],[])
   where n = length xs
         go 0 s = return . fst $ s
@@ -93,10 +101,10 @@ initPP k xs dst = go k ([],[])
 
 -- Inner workings of k-means++ centroid selection
 selectPP
-  :: [DVec]                    -- Data @xs@
-  -> ([DVec],[Int])            -- Current centroids @cs@ and indices in @xs@
-  -> (DVec -> DVec -> Double)  -- Distance measure
-  -> IO Int                    -- Returns: index of newly selected centroid from @xs@
+  :: [DVec]         -- Data @xs@
+  -> ([DVec],[Int]) -- Current centroids @cs@ and indices in @xs@
+  -> Distance       -- Distance measure
+  -> IO Int         -- Returns: index of newly selected centroid from @xs@
 selectPP xs (cs,ixs) dst = inner
   where mindst x = minimum . map (dst x) $ cs
         cdf      = init . scanl (+) 0 . map mindst $ xs
@@ -110,11 +118,11 @@ selectPP xs (cs,ixs) dst = inner
 -- | The k-means clustering algorithm.
 -- The user must supply list of @k@ initial centroids (type @['DVec']@)
 kmeans
-  :: Int                       -- ^ Number of iterations @n@
-  -> (DVec -> DVec -> Double)  -- ^ Distance measure @dist@; 'euclidean', 'manhattan', or arbitrary user-defined
-  -> [DVec]                    -- ^ Data vectors @xs@
-  -> [DVec]                    -- ^ Initial cluster centroids @cs@
-  -> ([DVec],[Int])            -- ^ Returns: tuple of solution cluster centroids @cs'@ and list of integer labels @ls@
+  :: Int            -- ^ Number of iterations @n@
+  -> Distance       -- ^ Distance measure @dist@; 'euclidean', 'manhattan', or arbitrary user-defined
+  -> [DVec]         -- ^ Data vectors @xs@
+  -> [DVec]         -- ^ Initial cluster centroids @cs@
+  -> ([DVec],[Int]) -- ^ Returns: tuple of solution cluster centroids @cs'@ and list of integer labels @ls@
 kmeans n dist xs cs = go n cs
   where go m cs' = let ls = label dist cs' xs in
           if    m == 0
@@ -122,22 +130,24 @@ kmeans n dist xs cs = go n cs
           else  go (m-1) (update k xs ls)
         k = length cs
 
--- | The k-means clustering algorithm, with initial cluster centroids randomly chosen from the data.
+-- | The k-means clustering algorithm, with initial cluster centroids randomly
+-- chosen from the data.
 kmeansInitRandom
-  :: Int                       -- ^ Number of clusters @k@
-  -> Int                       -- ^ Number of iterations @n@
-  -> (DVec -> DVec -> Double)  -- ^ Distance measure @dist@; 'euclidean', 'manhattan', or arbitrary user-defined
-  -> [DVec]                    -- ^ Data vectors @xs@
-  -> IO ([DVec],[Int])         -- ^ Returns: tuple of solution cluster centroids @cs'@ and list of integer labels @ls@ in the IO Monad
+  :: Int                -- ^ Number of clusters @k@
+  -> Int                -- ^ Number of iterations @n@
+  -> Distance           -- ^ Distance measure @dist@; 'euclidean', 'manhattan', or arbitrary user-defined
+  -> [DVec]             -- ^ Data vectors @xs@
+  -> IO ([DVec],[Int])  -- ^ Returns: tuple of solution cluster centroids @cs'@ and list of integer labels @ls@ in the IO Monad
 kmeansInitRandom k n dist xs =
   kmeans n dist xs `liftM` initRandom k xs
 
--- | The k-means clustering algorithm, with initial cluster centroids chosen from the data using the k-means++ of Arthur & Vassilvitskii (2007)
+-- | The k-means clustering algorithm, with initial cluster centroids chosen
+-- from the data using the k-means++ of Arthur & Vassilvitskii (2007).
 kmeansInitPP
-  :: Int                       -- ^ Number of clusters @k@
-  -> Int                       -- ^ Number of iterations @n@
-  -> (DVec -> DVec -> Double)  -- ^ Distance measure @dist@; 'euclidean', 'manhattan', or arbitrary user-defined
-  -> [DVec]                    -- ^ Data vectors @xs@
-  -> IO ([DVec],[Int])         -- ^ Returns: tuple of solution cluster centroids @cs'@ and list of integer labels @ls@ in the IO Monad
+  :: Int                -- ^ Number of clusters @k@
+  -> Int                -- ^ Number of iterations @n@
+  -> Distance           -- ^ Distance measure @dist@; 'euclidean', 'manhattan', or arbitrary user-defined
+  -> [DVec]             -- ^ Data vectors @xs@
+  -> IO ([DVec],[Int])  -- ^ Returns: tuple of solution cluster centroids @cs'@ and list of integer labels @ls@ in the IO Monad
 kmeansInitPP k n dist xs =
   kmeans n dist xs `liftM` initPP k xs dist

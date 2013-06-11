@@ -65,7 +65,7 @@ distortion
   -> [Int]    -- ^ Data labels given current centroids
   -> [DVec]   -- ^ Data
   -> Double   -- ^ Returns: summed misfit over all data vectors
-distortion dist cs ls xs = 
+distortion dist cs ls xs =
   foldl (\a (l,x) -> a + dist x (cs !! l)) 0 $ zip ls xs
 
 -- Random centroid initialization
